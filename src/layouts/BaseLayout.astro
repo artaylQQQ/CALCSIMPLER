@@ -1,54 +1,56 @@
 ---
-import "../styles/tailwind.css";
-const { title = 'EasyCalc Online', description = 'Free online calculators', canonical } = Astro.props;
-const site = Astro.site?.toString() || (import.meta.env.SITE_URL ?? 'https://example.com');
-const href = canonical ?? new URL(Astro.url.pathname, site).toString();
-const adsClient = import.meta.env.VITE_ADSENSE_CLIENT;
-const cfToken = import.meta.env.VITE_CF_ANALYTICS_TOKEN;
+const { title = 'Niche Calculator Network', description = 'Fast, accurate online calculators.' } = Astro.props;
+const ADS_CLIENT = import.meta.env.VITE_ADSENSE_CLIENT;
+const CF_TOKEN = import.meta.env.VITE_CF_ANALYTICS_TOKEN;
+const SITE = import.meta.env.SITE_URL || 'https://example.com';
 ---
+
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title ? `${title} — EasyCalc Online` : 'EasyCalc Online'}</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{title} — Niche Calculator Network</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={href} />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <meta name="theme-color" content="#0E2A47">
-    <link rel="stylesheet" href="/styles/theme.css" />
-    {adsClient && (
-      <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={adsClient}" crossorigin="anonymous"></script>
+    
+    <meta name="robots" content="index,follow" />
+    {(() => { const href = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : `https://example.com${Astro.url.pathname}`; return (<link rel="canonical" href={href} />) })()}
+    {CF_TOKEN && (
+      <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={`{"token":"${CF_TOKEN}"}`}></script>
     )}
-    {cfToken && (
-      <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={`{"token":"${cfToken}"}`}></script>
+    {ADS_CLIENT && (
+      <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={ADS_CLIENT}" crossorigin="anonymous"></script>
     )}
+    <style>
+      :root { --maxw: 860px; --bg:#fff; --fg:#111; --muted:#666; --border:#e8e8e8; }
+      *{box-sizing:border-box} body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;color:var(--fg);background:var(--bg)}
+      header,main,footer{margin:0 auto;max-width:var(--maxw);padding:16px}
+      header a{text-decoration:none;color:inherit}
+      nav a{margin-right:12px}
+      .card{border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0;background:#fff}
+      .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+      label{display:block;margin:8px 0 4px}
+      input,select,button{width:100%;padding:10px;border:1px solid var(--border);border-radius:6px}
+      .result{font-size:1.25rem;font-weight:600;margin-top:12px}
+      .muted{color:var(--muted);font-size:.95rem}
+      .adslot{min-height:90px;display:block;margin:16px auto;text-align:center}
+      input:focus,button:focus{outline:2px solid #3b82f6;outline-offset:2px}
+      button{cursor:pointer}
+    </style>
   </head>
   <body>
-    <a href="#main" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">Skip to content</a>
-    <header class="header" role="banner">
-      <div class="header-inner">
-        <a href="/" aria-label="EasyCalc Online" class="logo">EasyCalcOnline.com</a>
-        <nav class="nav" aria-label="Primary">
-          <a href="/finance">Finance</a>
-          <a href="/health">Health</a>
-          <a href="/math">Math</a>
-          <a href="/conversions">Conversions</a>
-          <a href="/all">All</a>
-        </nav>
-      </div>
-    </header>
-    <main class="container" id="main" role="main">
-      <slot />
-    </main>
-    <footer class="container" style="padding:24px 0;">
-      <div class="links">
-        <a href="/">Home</a>
-        <a href="/all">All Calculators</a>
-        <a href="/sitemap-index.xml">Sitemap</a>
+    <header>
+      <a href="/"><h1>Niche Calculator Network</h1></a>
+      <nav>
         <a href="/privacy">Privacy</a>
         <a href="/disclaimer">Disclaimer</a>
-      </div>
-      <div style="text-align:center;margin-top:8px;color:var(--muted)">© {new Date().getFullYear()} EasyCalc Online</div>
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="muted">
+      <div>© {new Date().getUTCFullYear()} Niche Calculator Network</div>
     </footer>
   </body>
 </html>
