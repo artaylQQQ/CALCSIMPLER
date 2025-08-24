@@ -1,101 +1,131 @@
-// scripts/generate_calcs.js
-import fs from 'fs';
-import path from 'path';
+// Safe generator: reads data/calculators.json and creates MDX files in src/pages/calculators/
+import fs from 'node:fs';
+import path from 'node:path';
 
 const ROOT = process.cwd();
-const DATA_JSON = path.join(ROOT, 'data', 'calculators.json');
-const OUT_DIR   = path.join(ROOT, 'src', 'pages', 'calculators'); // <-- public pages
-const META_DIR  = path.join(ROOT, 'meta');
-const LOG       = path.join(META_DIR, 'publish_log.json');
+const SRC = path.join(ROOT, 'src', 'pages', 'calculators');
+const DATA = path.join(ROOT, 'data', 'calculators.json');
+const LOGP = path.join(ROOT, 'meta', 'publish_log.json');
 
-const MAX_PER_DAY = Math.max(20, Math.min(100, Number(process.env.MAX_PER_DAY || 50)));
-const TODAY = new Date().toISOString().slice(0,10); // UTC
+const MAX = Number(process.env.MAX_PER_DAY || process.env.MAX_PER_DAY_GITHUB || 50);
+const TODAY = new Date().toISOString().slice(0,10);
 
-if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
-if (!fs.existsSync(META_DIR)) fs.mkdirSync(META_DIR, { recursive: true });
+// Ensure dirs
+fs.mkdirSync(SRC, { recursive: true });
+fs.mkdirSync(path.dirname(LOGP), { recursive: true });
 
-function loadData() {
-  if (!fs.existsSync(DATA_JSON)) {
-    console.error('No data file. Put calculators in data/calculators.json');
-    return [];
-  }
-  return JSON.parse(fs.readFileSync(DATA_JSON, 'utf-8'));
+function readJSON(p, fallback) {
+  try { return JSON.parse(fs.readFileSync(p, 'utf-8')); }
+  catch { return fallback; }
 }
 
-function loadLog(){
-  try { return JSON.parse(fs.readFileSync(LOG, 'utf-8')); } catch { return { published: {} }; }
+const all = readJSON(DATA, []);
+const log = readJSON(LOGP, []);
+
+// Map various incoming cluster names to one of the top‑level categories used on the site.
+// Keys should be lower‑cased to simplify lookups. See README for category definitions.
+const CATEGORY_MAP = {
+  'finance & loans': 'Finance',
+  'percentages & ratios': 'Finance',
+  'finance': 'Finance',
+  'health & fitness': 'Health',
+  'health': 'Health',
+  'geometry & math': 'Math',
+  'math': 'Math',
+  'conversions & units': 'Conversions',
+  'conversions': 'Conversions',
+  'misc': 'Other',
+  'other': 'Other',
+  'everyday': 'Other',
+  'technology': 'Technology',
+  'date & time': 'Date & Time',
+  'home & diy': 'Home & DIY',
+  'education': 'Other'
+};
+
+// pick not yet published
+const published = new Set(log.map(r => r.slug));
+const backlog = all.filter(x => !published.has(x.slug));
+
+function sanitizeExpr(expr) {
+  // Preserve original exponent operator '^' used by our safe evaluator. If the input uses '**', convert it back.
+  if (typeof expr !== 'string') return '';
+  return expr.replace(/\*\*/g, '^');
 }
-function saveLog(log){ fs.writeFileSync(LOG, JSON.stringify(log, null, 2)); }
 
-function pickRelated(current, all, n=8){
-  const same = all.filter(x => x.cluster && x.cluster === current.cluster && x.slug !== current.slug);
-  const published = same.filter(x => x.__published);
-  const pool = (published.length >= n ? published : same);
-  const seen = new Set();
-  const out = [];
-  for (const c of pool) {
-    if (out.length >= n) break;
-    if (!seen.has(c.slug)) { out.push(c.slug); seen.add(c.slug); }
-  }
-  return out.slice(0, n);
+function titleize(slug) {
+  return slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function mdxTemplate(item, today){
-  const fm = `---\n`+
-  `title: "${(item.title||'Calculator').replace(/"/g,'\\"')}"\n`+
-  `description: "${(item.intro||'Online calculator.').replace(/"/g,'\\"')}"\n`+
-  `slug: "${item.slug}"\n`+
-  `cluster: "${item.cluster||''}"\n`+
-  `datePublished: "${today}"\n`+
-  `---`;
-
-  const schema = JSON.stringify({
-    slug: item.slug,
-    title: item.title,
-    locale: "en",
-    inputs: item.inputs || [],
-    ...(item.expression ? {expression: item.expression} : {}),
-    ...(item.formula_js ? {formula_js: item.formula_js} : {}),
-    units: item.units || {"input":"","output":""},
-    intro: item.intro || "",
-    examples: item.examples || [],
-    faqs: item.faqs || [],
-    related: item.related || [],
-    disclaimer: "Educational information, not professional advice.",
-    schema_org: "FAQPage|SoftwareApplication"
-  }, null, 2);
-
-  return `${fm}
-
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import Calculator from "../../components/Calculator.astro";
-
-export const schema = ${schema};
-
-<BaseLayout title={schema.title} description={schema.intro}>
-  <Calculator schema={schema} />
-</BaseLayout>
+function mdxFor(calc, related) {
+  // Normalise the calculator's cluster to one of the supported categories. If no mapping is found
+  // the original cluster is preserved or falls back to 'General'.
+  const clusterRaw = (calc.cluster || '').toLowerCase();
+  const clusterNorm = CATEGORY_MAP[clusterRaw] || calc.cluster || 'General';
+  const front = `---
+layout: ../../layouts/BaseLayout.astro
+title: ${calc.title}
+description: ${calc.intro}
+date: ${TODAY}
+updated: ${TODAY}
+cluster: ${clusterNorm}
+---
 `;
+
+  const importLine = "import Calculator from '../../components/Calculator.astro';\n";
+  const schema = {
+    slug: calc.slug,
+    title: calc.title,
+    locale: 'en',
+    inputs: calc.inputs || [],
+    expression: sanitizeExpr(calc.expression || ''),
+    formula_js: '',
+    units: calc.units || {"input":"","output":""},
+    intro: calc.intro || '',
+    examples: calc.examples || [],
+    faqs: calc.faqs || [],
+    disclaimer: calc.disclaimer || 'Educational information, not professional advice.',
+    schema_org: calc.schema_org || 'FAQPage|SoftwareApplication',
+    cluster: clusterNorm,
+    related
+  };
+  const schemaJSON = JSON.stringify(schema, null, 2);
+  const body = `
+export const schema = ${schemaJSON}
+
+# ${calc.title}
+
+${calc.intro || ''}
+
+<Calculator schema={schema} />
+
+## FAQ
+
+- _No FAQs yet._
+
+## Related calculators
+` + related.map(r => `- [${titleize(r)}](/calculators/${r}/)`).join('\n') + '\n';
+
+  return front + '\n' + importLine + '\n' + body;
 }
 
-async function main(){
-  const all = loadData();
-  const log = loadLog();
-  const publishedLog = log.published || {};
-  for (const it of all) if (publishedLog[it.slug]) it.__published = true;
-
-  const remaining = all.filter(x => !publishedLog[x.slug]);
-  const toPublish = remaining.slice(0, MAX_PER_DAY);
-  if (toPublish.length === 0) { console.log('No calculators to publish today.'); return; }
-
-  for (const item of toPublish){
-    item.related = pickRelated(item, all, 8);
-    const filepath = path.join(OUT_DIR, `${item.slug}.mdx`);
-    fs.writeFileSync(filepath, mdxTemplate(item, TODAY));
-    publishedLog[item.slug] = TODAY;
-    console.log('Generated', filepath);
-  }
-  log.published = publishedLog;
-  saveLog(log);
+function pickRelated(base) {
+  const sameCluster = all.filter(c => c.slug !== base.slug && c.cluster === base.cluster);
+  const pool = (sameCluster.length >= 6 ? sameCluster : all.filter(c => c.slug !== base.slug));
+  return pool.slice(0,6).map(c => c.slug);
 }
-main().catch(e => { console.error(e); process.exit(1); });
+
+const n = Math.max(1, Math.min(100, Number(MAX) || 50));
+const slice = backlog.slice(0, n);
+
+for (const calc of slice) {
+  const related = pickRelated(calc);
+  const mdx = mdxFor(calc, related);
+  const p = path.join(SRC, `${calc.slug}.mdx`);
+  fs.writeFileSync(p, mdx, 'utf-8');
+  log.push({ slug: calc.slug, date: TODAY });
+}
+
+fs.writeFileSync(LOGP, JSON.stringify(log, null, 2), 'utf-8');
+
+console.log(`Published ${slice.length} calculators`);

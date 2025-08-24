@@ -1,33 +1,60 @@
 ---
-title: "Loan Payment (PMT) Calculator"
-description: "Estimate your fixed monthly loan payment."
-slug: "loan-payment-calculator"
-cluster: "Finance & Loans"
-datePublished: "2025-08-16"
+layout: ../../layouts/BaseLayout.astro
+title: "Loan Payment Calculator"
+description: "Compute fixed monthly payment for a loan."
+updated: "2025-08-22"
+cluster: "Finance"
 ---
 
-import BaseLayout from "../../src/layouts/BaseLayout.astro";
-import Calculator from "../../src/components/Calculator.astro";
+import Calculator from '../../components/Calculator.astro';
 
 export const schema = {
-  "slug":"loan-payment-calculator",
-  "title":"Loan Payment (PMT) Calculator",
-  "locale":"en",
-  "inputs":[
-    {"name":"principal","type":"number","min":0,"step":0.01,"hint":"Loan amount (PV)"},
-    {"name":"rate","type":"number","min":0,"step":0.0001,"hint":"Annual interest rate (%)"},
-    {"name":"months","type":"number","min":1,"step":1,"hint":"Number of months"}
+  "inputs": [
+    {
+      "name": "principal",
+      "label": "Loan Amount",
+      "type": "number",
+      "placeholder": "Enter loan amount",
+      "step": 0.01,
+      "min": 0,
+      "units": "$"
+    },
+    {
+      "name": "annualRate",
+      "label": "Annual Interest Rate (%)",
+      "type": "number",
+      "placeholder": "Enter annual interest rate",
+      "step": 0.01,
+      "min": 0
+    },
+    {
+      "name": "years",
+      "label": "Loan Term (years)",
+      "type": "number",
+      "placeholder": "Enter loan term in years",
+      "step": 1,
+      "min": 0
+    }
   ],
-  "formula_js":"(inputs) => { const r = (inputs.rate/100)/12; const n = inputs.months; const pv = inputs.principal; const pmt = r===0 ? pv/n : (r*pv)/(1-Math.pow(1+r,-n)); return { result: Number(pmt.toFixed(2)), steps: [`Monthly rate r = ${(inputs.rate/100)/12}`, `Payment = r*PV / (1-(1+r)^-n)`] }; }",
-  "units":{"input":"USD","output":"USD/month"},
-  "intro":"Estimate your fixed monthly loan payment using the standard annuity formula.",
-  "examples":[{"input":{"principal":10000,"rate":6,"months":36},"output":"304.22"}],
-  "faqs":[{"q":"What formula do you use?","a":"We use PMT = r×PV / (1−(1+r)^(−n)) with a monthly rate."}],
-  "related": ["simple-interest-calculator","compound-interest-calculator","npv-calculator"],
-  "disclaimer":"Educational information, not professional advice.",
-  "schema_org":"FAQPage|SoftwareApplication"
+  "slug": "loan-payment-calculator",
+  "title": "Loan Payment Calculator",
+  "locale": "en",
+  // Monthly payment formula: P * (r / (1 - (1 + r)^(-n))) with r=annualRate/100/12 and n=years*12
+  "expression": "(annualRate == 0 ? (principal / (years * 12)) : (principal * ((annualRate / 100 / 12) * (1 + (annualRate / 100 / 12)) ^ (years * 12))) / ((1 + (annualRate / 100 / 12)) ^ (years * 12) - 1))",
+  "intro": "Compute fixed monthly payment for a loan.",
+  "examples": [
+    {
+      "description": "For example, if you borrow $10,000 at 5% annual interest for 3 years, your monthly payment is about $299.71."
+    }
+  ],
+  "faqs": [
+    {
+      "question": "What does this calculator compute?",
+      "answer": "It calculates the monthly payment required to pay off a loan of a given amount, term and annual interest rate."
+    }
+  ],
+  "disclaimer": "Educational information, not professional advice.",
+  "cluster": "Finance"
 };
 
-<BaseLayout title={schema.title} description={schema.intro}>
-  <Calculator schema={schema} />
-</BaseLayout>
+<Calculator schema={schema} />
